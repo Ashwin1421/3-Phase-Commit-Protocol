@@ -8,6 +8,10 @@ package Application;
 import Node.Coordinator;
 import Node.Process;
 import Utils.Constants;
+import java.io.IOException;
+import java.net.SocketException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -17,14 +21,28 @@ public class Main {
     public static void main(String[] args){
             
         Constants con = new Constants();
-        String option="";
+        String option;
         if(args.length == 1){
             option = args[0];
             if(option.equalsIgnoreCase("-c")){
-                new Coordinator(4464,1).start();
+                Coordinator c = new Coordinator(4464,1);
+                c.start();
             }
+            
         }else{
-            new Process(con.coordinator,4464).start();
+            Process p = new Process(con.coordinator, 4464);
+            int pollLimit = 10;
+            while(pollLimit>0){
+                try {
+                    p.connect();
+                } catch (SocketException ex){
+                    System.out.println(Coordinator.coordinatorSocket.isClosed());
+                    p.reconnect();
+                } catch (IOException ex) {
+                    //Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                pollLimit--;
+            }
         }    
     }
 }
