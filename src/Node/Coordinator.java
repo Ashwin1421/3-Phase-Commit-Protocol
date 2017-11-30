@@ -5,6 +5,7 @@
  */
 package Node;
 
+import Message.Abort;
 import Message.Ack;
 import Message.Commit;
 import Message.Prepare;
@@ -18,20 +19,30 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import Utils.Constants;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.Scanner;
 
 /**
  *
  * @author Ashwin
  */
-public class Coordinator {
+public class Coordinator{
     public static int pCount = 0;
     String hostName;
     int port;
-    int pid;
-    ServerSocket coordinatorSocket;
+    public static int pid;
+    public static ServerSocket coordinatorSocket;
     Socket processSocket;
     static Map<Socket, Integer> pSockets = new HashMap<>();
     Constants con = new Constants();
@@ -69,9 +80,15 @@ public class Coordinator {
 class processHandler extends Thread{
     static int agreedCount = 0;
     static int readyCount = 0;
+    static long t1, t2;
     Map<Socket, Integer> pSockets;
     Constants con = new Constants();
     static Map<ObjectOutputStream, Integer> pList = new HashMap<>();
+    Scanner sc = new Scanner(System.in);
+    PrintWriter fileWriter = null;
+    static int transaction_id = 0;
+    String file_name = "state_"+Coordinator.pid+".out";
+    File file;
     Socket processSocket;
     int pid;
     
@@ -79,6 +96,29 @@ class processHandler extends Thread{
         this.pid = pid;
         this.processSocket = processSocket;
         this.pSockets = pSockets;
+    }
+    
+    public void save_state(int transaction_id, Object val){
+        try {
+            file = new File(file_name);
+            fileWriter = new PrintWriter(new FileWriter(file, true));
+            if(file.exists() && !file.isDirectory()){
+                BufferedReader bf = new BufferedReader(new FileReader(file));
+                String line;
+                while((line=bf.readLine())!=null){
+                    int prev_transaction_id = Integer.parseInt(line.split(",|:")[1].trim());
+                    transaction_id = prev_transaction_id + 1;
+                }
+                fileWriter.append("Transaction : "+transaction_id+", commited value: "+val+"\n");
+                fileWriter.close();
+            }else{
+                fileWriter.println("Transaction : "+transaction_id+", commited value: "+val);
+                fileWriter.close();
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(processHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
     }
     
     public void print(Object o){
@@ -93,12 +133,19 @@ class processHandler extends Thread{
                 } catch (IOException ex) {
                     Logger.getLogger(processHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
-                print(o);
+                print("Sent: "+o);
             }
+        }
+    }
+    
+    private void sendAll(Object o){
+        for(Integer i : pList.values()){
+            sendTo(i, o);
         }
     }
     @Override
     public void run(){
+        
         try {
             print("Connected to "+processSocket.getRemoteSocketAddress());
             ObjectOutputStream objout = new ObjectOutputStream(processSocket.getOutputStream());
@@ -107,37 +154,45 @@ class processHandler extends Thread{
             
             while(true){
                 Object recvMsg;
-                try {
                     recvMsg = objin.readObject();
                     if(recvMsg instanceof Register){
-                        print(recvMsg);
+                        print("Received: "+recvMsg);
                         if(pSockets.containsKey(processSocket)){
                             pList.put(objout, pSockets.get(processSocket));
                         }
                         Coordinator.pCount++;
                         if(Coordinator.pCount == (con.N-1)){
+                            
                             for(Integer i : pList.values()){
                                 Register sendMsg = new Register("assigned pid");
                                 sendMsg.setpid(i);
                                 sendTo(i, sendMsg);
-                                
-                                Request commitRequest = new Request(pid);
-                                commitRequest.settext("Commit Request");
-                                sendTo(i, commitRequest);
                             }
+                            
+                            Request commitRequest = new Request(pid);
+                            commitRequest.settext("Commit Request");
+                            sendAll(commitRequest);
+                            t1 = System.currentTimeMillis();
                         }
                     }
                     
                     if(recvMsg instanceof Ack){
-                        print(recvMsg);
-                        if(((Ack)recvMsg).gettext().equalsIgnoreCase("Agree to commit")){
+                        print("Received: "+recvMsg);
+                        if(((Ack)recvMsg).gettext().equalsIgnoreCase("Agree")){
                             agreedCount++;
                             if(agreedCount == (con.N-1)){
-                                for(Integer i: pList.values()){
-                                    Prepare prepareCommit = new Prepare(pid);
-                                    prepareCommit.settext("Prepare to commit");
-                                    sendTo(i, prepareCommit);
+                                t2 = System.currentTimeMillis();
+                                if(Math.abs(t1-t2) >= 10000){
+                                    print("Coordinator timed out.");
+                                    Coordinator.coordinatorSocket.close();
+                                    Abort abortMsg = new Abort(pid);
+                                    abortMsg.settext("Abort");
+                                    sendAll(abortMsg);
+                                    System.exit(0);
                                 }
+                                Prepare prepareCommit = new Prepare(pid);
+                                prepareCommit.settext("Prepare to commit");
+                                sendAll(prepareCommit);
                             }
                         }
                         
@@ -145,25 +200,30 @@ class processHandler extends Thread{
                             readyCount++;
                             
                             if(readyCount == (con.N-1)){
-                                Scanner sc = new Scanner(System.in);
                                 print("Please enter a value to commit.");
                                 Object val = sc.nextInt();
-                                for(Integer i : pList.values()){
-                                    Commit commitMsg = new Commit(pid);
-                                    commitMsg.settext("Commit");
-                                    commitMsg.setval(val);
-                                    sendTo(i, commitMsg);
-                                }
+                                Commit commitMsg = new Commit(pid);
+                                commitMsg.settext("Commit");
+                                commitMsg.setval(val);
+                                sendAll(commitMsg);
                                 sc.close();
+                                save_state(transaction_id, val);
+                                System.exit(0);
                             }
                         }
                     }
-                } catch (ClassNotFoundException ex) {
-                    Logger.getLogger(processHandler.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                
+                    
+                    if(recvMsg instanceof Abort){
+                        print("Received: "+recvMsg);
+                        Abort abortMsg = new Abort(pid);
+                        abortMsg.settext("Abort");
+                        sendAll(abortMsg);
+                        System.exit(0);
+                    }
             }
         } catch (IOException ex) {
+            Logger.getLogger(processHandler.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ClassNotFoundException ex) {
             Logger.getLogger(processHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
