@@ -20,7 +20,7 @@ public class Constants {
     InputStream configFileInputStream = null;
     public String coordinator = null;
     public Integer N;
-    
+
     public Constants(){
         configFileInputStream = getClass().getClassLoader().getResourceAsStream("config.properties");
         if(configFileInputStream!=null){
