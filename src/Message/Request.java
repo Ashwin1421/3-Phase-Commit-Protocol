@@ -12,22 +12,18 @@ import java.io.Serializable;
  * @author Ashwin
  */
 public class Request implements Serializable{
-    String text;
     Integer pid;
     
     public Request(Integer pid){
         this.pid = pid;
     }
     
-    public void settext(String text){
-        this.text = text;
-    }
     public Integer getpid(){
         return pid;
     }
     
     @Override
     public String toString(){
-        return "Text="+text+", pid="+pid;
+        return "Commit Request, pid="+pid;
     }
 }

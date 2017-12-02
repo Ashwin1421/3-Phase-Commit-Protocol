@@ -12,16 +12,12 @@ import java.io.Serializable;
  * @author Ashwin
  */
 public class Prepare implements Serializable{
-    String text;
     Integer pid;
     
     public Prepare(Integer pid){
         this.pid = pid;
     }
     
-    public void settext(String text){
-        this.text = text;
-    }
     
     public Integer getpid(){
         return pid;
@@ -29,6 +25,6 @@ public class Prepare implements Serializable{
     
     @Override
     public String toString(){
-        return "Text="+text+", pid="+pid;
+        return "Prepare to commit, pid="+pid;
     }
 }

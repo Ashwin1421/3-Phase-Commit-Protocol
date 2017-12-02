@@ -12,7 +12,6 @@ import java.io.Serializable;
  * @author Ashwin
  */
 public class Commit implements Serializable{
-    String text;
     Integer pid;
     Object val;
     
@@ -20,9 +19,6 @@ public class Commit implements Serializable{
         this.pid = pid;
     }
     
-    public void settext(String text){
-        this.text = text;
-    }
     
     public Integer getpid(){
         return pid;
@@ -38,6 +34,6 @@ public class Commit implements Serializable{
     
     @Override
     public String toString(){
-        return "Text="+text+", pid="+pid;
+        return "Commit, pid="+pid;
     }
 }
