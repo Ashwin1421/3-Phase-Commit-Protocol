@@ -8,7 +8,10 @@ package Application;
 import Node.Coordinator;
 import Node.Process;
 import Utils.Constants;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.SocketException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,7 +22,7 @@ import java.util.logging.Logger;
  */
 public class Main {
     public static void main(String[] args){
-            
+        
         Constants con = new Constants();
         String option;
         if(args.length == 1){
@@ -36,7 +39,6 @@ public class Main {
                 try {
                     p.connect();
                 } catch (SocketException ex){
-                    System.out.println(Coordinator.coordinatorSocket.isClosed());
                     p.reconnect();
                 } catch (IOException ex) {
                     //Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
