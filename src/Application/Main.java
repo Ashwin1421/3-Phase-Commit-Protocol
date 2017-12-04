@@ -37,11 +37,14 @@ public class Main {
             int pollLimit = 10;
             while(pollLimit>0){
                 try {
+                    Thread.sleep(1000);
                     p.connect();
                 } catch (SocketException ex){
                     p.reconnect();
                 } catch (IOException ex) {
                     //Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
                 }
                 pollLimit--;
             }
