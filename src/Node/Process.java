@@ -70,21 +70,27 @@ public class Process{
         print("Attempting to reconnect to coordinator...");
     }
     
-    private void save_state(int transaction_id, Object val){
+    public void save_state(int transaction_id, Object val){
         try {
             file = new File(file_name);
             fileWriter = new PrintWriter(new FileWriter(file, true));
             if(file.exists() && !file.isDirectory()){
+                BufferedReader bf = new BufferedReader(new FileReader(file));
+                String line;
+                while((line=bf.readLine())!=null){
+                    int prev_transaction_id = Integer.parseInt(line.split(",|:")[1].trim());
+                    transaction_id = prev_transaction_id + 1;
+                }
                 fileWriter.append("Transaction : "+transaction_id+", commited value: "+val+"\n");
                 fileWriter.close();
             }else{
                 fileWriter.println("Transaction : "+transaction_id+", commited value: "+val);
                 fileWriter.close();
             }
-            
         } catch (IOException ex) {
-            //Logger.getLogger(Process.class.getName()).log(Level.SEVERE, null, ex);
+            //Logger.getLogger(processHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
+        
     }
     
     /**
@@ -212,7 +218,7 @@ public class Process{
              * Timeout transition during state "q"
              * for cohort "i".
              */
-            if(Math.abs(t2-t1) >= con.tqi){
+            if((Math.abs(t2-t1) >= con.tqi) && (con.failingCohort == pid)){
                 print("Cohort timed out.");
                 Abort abortMsg = new Abort(pid);
                 send(objout, abortMsg);
@@ -248,7 +254,7 @@ public class Process{
                             send(objout, sendAck);
                             t4 = System.currentTimeMillis();
                             print("diff="+Math.abs(t4-t3));
-                            if(Math.abs(t4-t3) >= con.twi){
+                            if((Math.abs(t4-t3) >= con.twi) && (con.failingCohort == pid)){
                                 print("Cohort timed out.");
                                 Abort abortMsg = new Abort(pid);
                                 send(objout, abortMsg);
@@ -268,7 +274,7 @@ public class Process{
                             t4 = System.currentTimeMillis();
                             print("diff="+Math.abs(t4-t3));
                             stateInfo = "a";
-                            if(Math.abs(t4-t3) >= con.twi){
+                            if((Math.abs(t4-t3) >= con.twi) && (con.failingCohort == pid) ) {
                                 print("Cohort timed out.");
                                 //abortMsg = new Abort(pid);
                                 //send(objout, abortMsg);
@@ -301,7 +307,7 @@ public class Process{
                         t6 = System.currentTimeMillis();
                         print("Received: "+recvMsg);
                         print("diff="+Math.abs(t6-t5));
-                        if(Math.abs(t6-t5) >= con.tpi){
+                        if((Math.abs(t6-t5) >= con.tpi) && (con.failingCohort == pid) ){
                             print("Cohort timed out.");
                             print("received value="+((Commit) recvMsg).getval());
                             save_state(transaction_id, ((Commit) recvMsg).getval());
